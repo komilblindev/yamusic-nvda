@@ -97,7 +97,15 @@ TRANSLATIONS = {
 		"Browse...": "Tanlash...",
 		"Select Player Executable": "Pleyer dasturini (.exe) tanlang",
 		"You can only preview tracks.": "Faqatgina treklarni (qo'shiqlarni) eshitib ko'rish mumkin.",
-		"Loading stream...": "Audio oqimi yuklanmoqda..."
+		"Loading stream...": "Audio oqimi yuklanmoqda...",
+		"My Playlists": "Mening pleylistlarim",
+		"Add to Playlist": "Pleylistga qo'shish",
+		"Create Playlist": "Pleylist yaratish",
+		"Playlist name:": "Pleylist nomi:",
+		"Track already exists in this playlist!": "Bu trek ushbu pleylistda bor!",
+		"Track added successfully!": "Trek muvaffaqiyatli qo'shildi!",
+		"Select Playlist": "Pleylistni tanlang",
+		"Enter new playlist name:": "Yangi pleylist nomini kiriting:"
 	},
 	"ru": {
 		"Yandex Music Settings": "Настройки Яндекс Музыки",
@@ -167,7 +175,15 @@ TRANSLATIONS = {
 		"Browse...": "Обзор...",
 		"Select Player Executable": "Выберите файл плеера (.exe)",
 		"You can only preview tracks.": "Прослушивать можно только треки.",
-		"Loading stream...": "Загрузка потока..."
+		"Loading stream...": "Загрузка потока...",
+		"My Playlists": "Мои плейлисты",
+		"Add to Playlist": "Добавить в плейлист",
+		"Create Playlist": "Создать плейлист",
+		"Playlist name:": "Имя плейлиста:",
+		"Track already exists in this playlist!": "Этот трек уже есть в данном плейлисте!",
+		"Track added successfully!": "Трек успешно добавлен!",
+		"Select Playlist": "Выберите плейлист",
+		"Enter new playlist name:": "Введите имя нового плейлиста:"
 	}
 }
 
@@ -392,8 +408,8 @@ class YandexMusicDialog(wx.Dialog):
 		self.tc_search = wx.TextCtrl(panel, style=wx.TE_PROCESS_ENTER)
 		# Translators: UI message for Search
 		self.btn_search = wx.Button(panel, label=_("Search"))
-		# Translators: UI message for My Music
-		self.btn_my_music = wx.Button(panel, label=_("My Music"))
+		# Translators: UI message for My Playlists
+		self.btn_my_music = wx.Button(panel, label=_("My Playlists"))
 		
 		hbox1.Add(lbl_search, flag=wx.RIGHT, border=8)
 		hbox1.Add(self.tc_search, proportion=1)
@@ -426,6 +442,9 @@ class YandexMusicDialog(wx.Dialog):
 
 	def on_char_hook(self, event):
 		keycode = event.GetKeyCode()
+		if event.AltDown() and keycode == wx.WXK_F4:
+			self.on_close(None)
+			return
 		if keycode == wx.WXK_ESCAPE:
 			self.on_close(None)
 		elif keycode in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
@@ -500,6 +519,10 @@ class YandexMusicDialog(wx.Dialog):
 			# Translators: UI message for Preview / Listen
 			item_preview = menu.Append(wx.ID_ANY, _("Preview / Listen"))
 			self.Bind(wx.EVT_MENU, self.on_preview, item_preview)
+			
+			# Translators: UI message for Add to Playlist
+			item_add_playlist = menu.Append(wx.ID_ANY, _("Add to Playlist"))
+			self.Bind(wx.EVT_MENU, self.on_add_to_playlist, item_add_playlist)
 			
 			# Translators: UI message for Save Lyrics
 			item_lyrics = menu.Append(wx.ID_ANY, _("Save Lyrics"))
@@ -596,6 +619,60 @@ class YandexMusicDialog(wx.Dialog):
 		import threading
 		threading.Thread(target=do_save).start()
 
+	def on_add_to_playlist(self, event):
+		sels = self.lb_results.GetSelections()
+		if not sels: return
+		sel = sels[0]
+		item_type, display_text, obj = self.search_results[sel]
+		
+		if item_type != "Track":
+			return
+			
+		# Translators: UI message for Loading profile...
+		ui.message(_("Loading profile..."))
+		
+		def do_add():
+			try:
+				client = self.get_client()
+				if not client: return
+				my_playlists = client.users_playlists_list()
+				if not my_playlists:
+					wx.CallAfter(ui.message, _("No results"))
+					return
+				
+				titles = [p.title for p in my_playlists]
+				
+				def show_dialog():
+					# Translators: UI message for Select Playlist
+					dlg = wx.SingleChoiceDialog(self, _("Select Playlist"), _("Add to Playlist"), titles)
+					if dlg.ShowModal() == wx.ID_OK:
+						sel_idx = dlg.GetSelection()
+						p = my_playlists[sel_idx]
+						
+						def add_track():
+							try:
+								full_playlist = client.users_playlists(kind=p.kind, user_id=p.uid)
+								exists = False
+								for st in full_playlist.tracks:
+									if st.track and str(st.track.id) == str(obj.id):
+										exists = True
+										break
+								if exists:
+									wx.CallAfter(ui.message, _("Track already exists in this playlist!"))
+								else:
+									rev = full_playlist.revision
+									client.users_playlists_insert_track(kind=p.kind, track_id=obj.id, album_id=obj.albums[0].id if obj.albums else None, revision=rev)
+									wx.CallAfter(ui.message, _("Track added successfully!"))
+							except Exception as e:
+								wx.CallAfter(ui.message, _("Error:") + " " + str(e))
+						threading.Thread(target=add_track).start()
+					dlg.Destroy()
+				wx.CallAfter(show_dialog)
+			except Exception as e:
+				wx.CallAfter(ui.message, _("Error:") + " " + str(e))
+				
+		threading.Thread(target=do_add).start()
+
 	def on_preview(self, event):
 		sels = self.lb_results.GetSelections()
 		if not sels: return
@@ -674,6 +751,8 @@ class YandexMusicDialog(wx.Dialog):
 				client = self.get_client()
 				if not client: return
 				results = []
+				# Translators: UI message for Create Playlist
+				results.append(("CreatePlaylist", _("Create Playlist"), None))
 				# Translators: UI message for [My] Liked Tracks
 				results.append(("LikedTracks", _("[My] Liked Tracks"), None))
 				
@@ -804,6 +883,24 @@ class YandexMusicDialog(wx.Dialog):
 		
 		item_type, display_text, obj = self.search_results[sel]
 		
+		if item_type == "CreatePlaylist":
+			# Translators: UI message for Enter new playlist name:
+			dlg = wx.TextEntryDialog(self, _("Enter new playlist name:"), _("Create Playlist"))
+			if dlg.ShowModal() == wx.ID_OK:
+				title = dlg.GetValue().strip()
+				if title:
+					def create_pl():
+						try:
+							client = self.get_client()
+							if client:
+								client.users_playlists_create(title=title)
+								wx.CallAfter(self.on_my_music, None)
+						except Exception as e:
+							wx.CallAfter(ui.message, _("Error:") + " " + str(e))
+					threading.Thread(target=create_pl).start()
+			dlg.Destroy()
+			return
+			
 		if item_type == "Artist":
 			# Translators: UI message for Loading profile...
 			ui.message(_("Loading profile..."))
@@ -1090,6 +1187,29 @@ class YandexMusicDialog(wx.Dialog):
 							track.download(path, bitrate_in_kbps=best_info.bitrate_in_kbps)
 						else:
 							track.download(path)
+							
+						try:
+							cover_bytes = track.download_cover_bytes()
+							from mutagen.mp3 import MP3
+							from mutagen.id3 import ID3, APIC, error
+							audio = MP3(path, ID3=ID3)
+							try:
+								audio.add_tags()
+							except error:
+								pass
+							audio.tags.add(
+								APIC(
+									encoding=3, 
+									mime='image/jpeg', 
+									type=3, 
+									desc='Cover',
+									data=cover_bytes
+								)
+							)
+							audio.save()
+						except Exception as cover_err:
+							pass
+							
 					except Exception as e:
 						wx.CallAfter(ui.message, f"Download error: {e}")
 						time.sleep(1)
@@ -1103,7 +1223,11 @@ class YandexMusicDialog(wx.Dialog):
 					# Translators: UI message for Downloaded:
 					wx.CallAfter(dlg[0].Update, total_downloaded, f"{_('Downloaded:')} {total_downloaded}/{total}")
 				
-				wx.CallAfter(dlg[0].Destroy)
+				def finish_dlg():
+					if dlg[0]:
+						dlg[0].Hide()
+						dlg[0].Destroy()
+				wx.CallAfter(finish_dlg)
 				tones.beep(1760, 200); tones.beep(2000, 200)
 				# Translators: UI message for Done!
 				wx.CallAfter(ui.message, f"{_('Done!')} {total_downloaded} {_('tracks')}")
@@ -1118,7 +1242,8 @@ class YandexMusicDialog(wx.Dialog):
 		threading.Thread(target=do_download).start()
 
 	def on_close(self, event):
-		self.Destroy()
+		self.Hide()
+		wx.CallAfter(self.Destroy)
 
 
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):

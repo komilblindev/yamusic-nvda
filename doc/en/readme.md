@@ -53,3 +53,9 @@ This addon is developed solely for educational and accessibility purposes.
 It is an unofficial client and has no official affiliation with Yandex LLC.
 All downloaded materials are for personal use only. The author is not
 responsible for any misuse of this tool.
+
+
+## Third-party Licenses
+This add-on uses the following third-party libraries:
+- yandex-music (Python library): Distributed under the MIT License.
+- mutagen (Python library): Distributed under the GPLv2 License.

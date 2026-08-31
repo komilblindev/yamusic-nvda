@@ -51,3 +51,9 @@ Ushbu plagin faqat ta'lim va ko'zi ojizlarga qulaylik yaratish maqsadida ishlab 
 Bu norasmiy dastur bo'lib, Yandex LLC bilan rasmiy aloqasi yo'q.
 Yuklab olingan barcha materiallar faqat shaxsiy foydalanish uchun. Muallif ushbu 
 dasturdan noto'g'ri foydalanish bo'yicha javobgar emas.
+
+
+## Uchinchi tomon litsenziyalari
+Ushbu plagin quyidagi uchinchi tomon kutubxonalaridan foydalanadi:
+- yandex-music (Python kutubxonasi): MIT litsenziyasi ostida tarqatiladi.
+- mutagen (Python kutubxonasi): GPLv2 litsenziyasi ostida tarqatiladi.
